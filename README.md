@@ -1,0 +1,1 @@
+## Generate image outputs using predefined smart object files and an input image.
