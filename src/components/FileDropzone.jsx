@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { RxCross2 } from 'react-icons/rx';
 
 function FileDropzone({ onFilesUploaded }, type='all') {
   const [files, setFiles] = useState([]);
@@ -27,7 +28,7 @@ function FileDropzone({ onFilesUploaded }, type='all') {
     console.log(acceptedFiles);
   }, [onFilesUploaded]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { acceptedFiles, getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types
     accept: allowedFileTypes
@@ -39,6 +40,7 @@ function FileDropzone({ onFilesUploaded }, type='all') {
       className={`dropzone ${isDragActive ? 'active' : ''}`}
       style={{
         maxWidth: '80vw',
+        minWidth: '80%',
         border: '2px dashed #cccccc',
         borderRadius: '4px',
         padding: '20px',
@@ -52,7 +54,7 @@ function FileDropzone({ onFilesUploaded }, type='all') {
       <input {...getInputProps()} />
       
       {isDragActive ? (
-        <p>Drop the PSD files here...</p>
+        <p>Drop the files here...</p>
       ) : (
         <>
           <p>Drag & drop files here, or click to select files</p>
@@ -69,16 +71,28 @@ function FileDropzone({ onFilesUploaded }, type='all') {
             {files.map((file, index) => (
               <li key={index} style={{
                 maxWidth: '80vw',
+                minWidth: '80%',
                 marginBottom: '5px',
                 border: '1px solid #eee',
                 padding: '5px',
                 borderRadius: '3px',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
+                flexDirection: 'column',
+                alignItems: 'flex-start',
               }}>
-                <span>{file.name}</span>
-                <span style={{ fontSize: '0.8em', color: '#888' }}>
+                <span style={{ 
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  width: '100%'
+                }}>
+                  {file.name}
+                </span>
+                <span style={{ 
+                  fontSize: '0.8em', 
+                  color: '#888',
+                  marginTop: '3px'
+                }}>
                   {(file.size / 1024).toFixed(2)} KB
                 </span>
               </li>
