@@ -10,9 +10,18 @@
     "opener:default",
     "store:default",
     "fs:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close",
     {
       "identifier": "fs:allow-app-write",
-      "allow": [{ "path": "$APPDATA/**/*" }]
-    }
+      "allow": [
+        {
+          "path": "$APPDATA/**/*"
+        }
+      ]
+    },
+    "sql:default"
   ]
 }
