@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react';
-import { addBase } from '../utils/templates';
+import {
+  addBase,
+  removeBase,
+  getAllBaseImages
+} from '../utils/templates';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import './styles/TemplateManager.css';
 import FileDropzone from '../components/FileDropzone';
 
 function TemplateManager() {
-  // State definitions
   const [baseImages, setBaseImages] = useState([]);
   const [selectedBaseImage, setSelectedBaseImage] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -12,99 +17,122 @@ function TemplateManager() {
   const [view, setView] = useState('bases'); // 'bases', 'addBase', 'templates'
   const [newBaseData, setNewBaseData] = useState({
     name: '',
-    filePrefix: ''
+    filePrefix: '',
+    file: null
   });
 
-  // Fetch base records on component mount
   useEffect(() => {
-    // Mock function to fetch base records
-    // This would be replaced with actual API call to backend
-    const fetchBaseImages = async () => {
-      try {
-        // TODO: Implement backend API call
-        // For now, just mock empty data and set loading to false
-        setBaseImages([]);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load base records');
-        setLoading(false);
-      }
-    };
-
     fetchBaseImages();
   }, []);
 
-  // Function to handle adding a new base image
-  async function handleAddBaseImage() {
-    setView('addBase');
-  }
-
-  // Function to handle form submission for new base
-  async function handleSubmitNewBase(e) {
-    e.preventDefault();
-    
+  async function fetchBaseImages() {
+    setLoading(true);
     try {
-      // TODO: Implement backend call to save new base
-      // addBase(newBaseData) would be the actual function call
+      const result = await getAllBaseImages();
       
-      console.log("Submitting new base:", newBaseData);
-      
-      // Reset form and go back to bases view
-      setNewBaseData({
-        name: '',
-        filePrefix: ''
-      });
-      setView('bases');
-      
-      // Refresh base records
-      // This would be replaced with actual API call
-      setLoading(true);
-      // fetchBaseImages();
+      if (result.success) {
+        setBaseImages(result.baseImages || []);
+      } else {
+        setError(result.error || 'Failed to load base images');
+      }
+    } catch (err) {
+      console.error('Error fetching base images:', err);
+      setError('Failed to load base records: ' + (err.message || 'Unknown error'));
+    } finally {
       setLoading(false);
-      
-    } catch (error) {
-      setError('Failed to add new base image');
     }
   }
 
-  // Function to handle selecting a base image
+  function handleAddBaseImage() {
+    setView('addBase');
+  }
+
+  function getAssetUrl(filePath) {
+    if (!filePath) return '';
+    try {
+      console.log("converted filesrc",convertFileSrc(filePath))
+      return convertFileSrc(filePath);
+    } catch (error) {
+      console.error('Error converting file path to URL:', error);
+      return '';
+    }
+  }
+
+  async function handleSubmitNewBase(e) {
+    e.preventDefault();
+    
+    if (!newBaseData.file) {
+      setError('Please upload an image file');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const result = await addBase({
+        file: newBaseData.file,
+        name: newBaseData.name,
+        filePrefix: newBaseData.filePrefix
+      });
+      
+      if (result.success) {
+        setNewBaseData({
+          name: '',
+          filePrefix: '',
+          file: null
+        });
+
+        await fetchBaseImages();
+        setView('bases');
+      } else {
+        setError(result.error || 'Failed to add base image');
+      }
+    } catch (error) {
+      console.error('Error adding base:', error);
+      setError(`Failed to add base: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleSelectBase(base) {
     setSelectedBaseImage(base);
+    console.log(base)
     setView('templates');
   }
 
-  // Function to handle going back to bases view
   function handleBackToBases() {
     setSelectedBaseImage(null);
     setView('bases');
   }
-
-  // Function to handle file upload for base image
-  function handleFileUpload(files) {
-    // This would extract height, width, aspect ratio from the file
-    console.log("Files uploaded:", files);
-    
-    // For now, just update the form with the filename
-    if (files && files.length > 0) {
-      setNewBaseData({
-        ...newBaseData,
-        thumbnailPath: files[0].path, // This would be handled by the backend
-        // These would be extracted from the image file
-        height: 0,
-        width: 0,
-        aspectRatio: 0
-      });
-    }
+  
+  async function handleRemoveBase(base,e) {
+    if (e) e.stopPropagation();
+    const confirmation = await confirm(
+      'This action cannot be reverted. Are you sure?',
+      { title: 'Tauri', kind: 'warning' }
+    );
+    console.log(confirmation);
+// Prints boolean to the console
+    // removeBase(base.id)
   }
 
-  // Function to get templates for selected base
-  // This would be replaced with actual data from backend
+  function handleFileUpload(files) {
+    if (!files || files.length === 0) return;
+    
+    setNewBaseData({
+      ...newBaseData,
+      file: files[0]
+    });
+    
+    console.log("File selected:", files[0].name);
+  }
+
   function getTemplatesForSelected() {
     if (!selectedBaseImage) return [];
-    return selectedBaseImage.templates || [];
+    return Object.values(selectedBaseImage.templates || {});
   }
 
-  // Render function for bases view
   function renderBasesView() {
     return (
       <>
@@ -129,7 +157,7 @@ function TemplateManager() {
                   onClick={() => handleSelectBase(image)}
                 >
                   <img 
-                    src={image.thumbnailPath} 
+                    src={getAssetUrl(image?.thumbnailPath)} 
                     alt={image.name} 
                   />
                   <div className="details">
@@ -146,7 +174,6 @@ function TemplateManager() {
     );
   }
 
-  // Render function for add base form
   function renderAddBaseView() {
     return (
       <>
@@ -186,6 +213,11 @@ function TemplateManager() {
               onFilesUploaded={handleFileUpload}
               type="png"
             />
+            {newBaseData.file && (
+              <p className="file-selected">
+                Selected: {newBaseData.file.name} ({(newBaseData.file.size / 1024).toFixed(2)} KB)
+              </p>
+            )}
             <small>Upload a PNG image to use as the base</small>
           </div>
           
@@ -193,8 +225,12 @@ function TemplateManager() {
             <button type="button" onClick={() => setView('bases')} className="cancel-button">
               Cancel
             </button>
-            <button type="submit" className="submit-button">
-              Create Base
+            <button 
+              type="submit" 
+              className="submit-button" 
+              disabled={!newBaseData.file || loading}
+            >
+              {loading ? 'Creating...' : 'Create Base'}
             </button>
           </div>
         </form>
@@ -202,7 +238,6 @@ function TemplateManager() {
     );
   }
 
-  // Render function for templates view
   function renderTemplatesView() {
     return (
       <>
@@ -210,6 +245,7 @@ function TemplateManager() {
           <h2>
             Templates for {selectedBaseImage?.name}
           </h2>
+          <button onClick={() => handleRemoveBase(selectedBaseImage)}>Remove</button>
           <button onClick={handleBackToBases} className="back-button">
             Back to Bases
           </button>
@@ -246,7 +282,6 @@ function TemplateManager() {
 
   return (
     <div className="template-manager">
-      {/* Error message display */}
       {error && (
         <div className="error-message">
           <p>{error}</p>

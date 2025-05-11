@@ -4,14 +4,14 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
-use tauri_plugin_sql::{Migration, MigrationKind}; 
+use tauri_plugin_sql::{Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![  
-        Migration {  
-            version: 1,  
-            description: "create base_images table",  
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create base_images table",
             sql: "CREATE TABLE IF NOT EXISTS base_images (  
                 id TEXT PRIMARY KEY,  
                 name TEXT NOT NULL,  
@@ -20,8 +20,8 @@ pub fn run() {
                 width INTEGER NOT NULL,  
                 thumbnail_path TEXT NOT NULL,  
                 file_prefix TEXT  
-            )",  
-            kind: MigrationKind::Up,  
+            )",
+            kind: MigrationKind::Up,
         },
         Migration {
             version: 2,
@@ -35,12 +35,14 @@ pub fn run() {
                 FOREIGN KEY (base_id) REFERENCES base_images(id) ON DELETE CASCADE
             )",
             kind: MigrationKind::Up,
-        }
-    ];  
+        },
+    ];
     tauri::Builder::default()
-        .plugin(tauri_plugin_sql::Builder::new()
-            .add_migrations("sqlite:test.db", migrations)
-            .build()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_sql::Builder::new()
+                .add_migrations("sqlite:test.db", migrations)
+                .build(),
         )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())

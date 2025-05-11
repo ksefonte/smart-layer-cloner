@@ -19,9 +19,13 @@
       "allow": [
         {
           "path": "$APPDATA/**/*"
+        },
+        {
+          "path": "$DOCUMENT/**/*"
         }
       ]
     },
-    "sql:default"
+    "sql:default",
+    "dialog:default"
   ]
 }

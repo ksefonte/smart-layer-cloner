@@ -3,7 +3,6 @@ import { basename, join, appDataDir } from '@tauri-apps/api/path';
 import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
 import Database from '@tauri-apps/plugin-sql';
 
-
 let db = null;
 async function getDb() {
   if (!db) {
@@ -11,16 +10,40 @@ async function getDb() {
   }
   return db;
 }
+export async function removeBase(baseId) {
+  try {
+    const db = await getDb();
+    await db.execute(
+      `DELETE FROM base_images WHERE id = $1`,[baseId]
+    );
+    return {succes: true};
+  } catch (error) { 
+    return { success: false, error: error.message };
+  }
+}
 
-export async function addBase(path, name = '', filePrefix = '') {
+
+export async function addBase(baseData) {
   try {
     console.log("Adding base record");
-    const db = await getDb();
+    const { file, name = '', filePrefix = '' } = baseData;
+    
+    let fileBuffer;
+    if (file instanceof Blob || file instanceof File) {
+      fileBuffer = await file.arrayBuffer();
+    } else if (baseData.fileBuffer) {
+      fileBuffer = baseData.fileBuffer;
+    } else {
+      throw new Error('No valid file or file buffer provided');
+    }
+
     const id = nanoid();
+    
     const dimensions = await getImageDimensionsFromArrayBuffer(fileBuffer);
     const { width, height } = dimensions;
     const aspectRatio = width / height;
-    const displayName = name || await basename(path);
+    
+    const displayName = name || (file.name ? file.name : 'Unnamed Base');
     
     const appDir = await appDataDir();
     const thumbnailsDir = await join(appDir, 'thumbnails');
@@ -31,9 +54,10 @@ export async function addBase(path, name = '', filePrefix = '') {
     }
     
     const thumbnailPath = await join(thumbnailsDir, `${id}.png`);
-    console.log("Path is:");
-    console.log(thumbnailPath);
+    console.log("Saving thumbnail to:", thumbnailPath);
     await writeFile(thumbnailPath, fileBuffer);
+    
+    const db = await getDb();
     
     await db.execute(
       `INSERT INTO base_images (id, name, aspect_ratio, height, width, thumbnail_path, file_prefix) 
@@ -49,13 +73,37 @@ export async function addBase(path, name = '', filePrefix = '') {
       width,
       thumbnailPath,
       filePrefix: filePrefix || '',
-      templatesArray: []
+      templates: {}
     };
     
-    return { success: true, id, baseImage };
+    return { success: true, baseImage };
   } catch (error) {
     console.error('Error adding base record:', error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function getAllBaseImages() {
+  try {
+    const db = await getDb();
+    const result = await db.select('SELECT * FROM base_images');
+    
+    return { 
+      success: true, 
+      baseImages: result.map(row => ({
+        id: row.id,
+        name: row.name,
+        aspectRatio: row.aspect_ratio,
+        height: row.height,
+        width: row.width,
+        thumbnailPath: row.thumbnail_path,
+        filePrefix: row.file_prefix,
+        templates: {}
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching base images:', error);
+    return { success: false, error: error.message, baseImages: [] };
   }
 }
 
