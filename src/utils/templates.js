@@ -16,7 +16,7 @@ export async function removeBase(baseId) {
     await db.execute(
       `DELETE FROM base_images WHERE id = $1`,[baseId]
     );
-    return {succes: true};
+    return {success: true};
   } catch (error) { 
     return { success: false, error: error.message };
   }

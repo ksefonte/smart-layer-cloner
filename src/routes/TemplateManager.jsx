@@ -108,13 +108,38 @@ function TemplateManager() {
   
   async function handleRemoveBase(base,e) {
     if (e) e.stopPropagation();
-    const confirmation = await confirm(
-      'This action cannot be reverted. Are you sure?',
-      { title: 'Tauri', kind: 'warning' }
-    );
-    console.log(confirmation);
-// Prints boolean to the console
-    // removeBase(base.id)
+    try {
+      const confirmation = await confirm(
+        'This action cannot be reverted. Are you sure?',
+        {
+          title: 'Confirm Deletion',
+          kind: 'warning',
+          okLabel: 'Delete',
+          cancelLabel: 'Cancel'
+        }
+      );
+      console.log(confirmation);
+      if (!confirmation) {
+        return;
+      }
+      setLoading(true);
+      const result = await removeBase(base.id);
+      if (result.success) {
+        if (selectedBaseImage && selectedBaseImage.id === base.id) {
+          setSelectedBaseImage(null);
+          setView('bases');
+        }
+        await fetchBaseImages();
+      } else {
+        console.log(result)
+        setError(result.error || 'Failed to delete base');
+      }
+    } catch (error) {
+      console.error('Error in delete process:', error);
+      setError('Failed to delete base: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleFileUpload(files) {
