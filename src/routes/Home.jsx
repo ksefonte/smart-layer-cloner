@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import reactLogo from "../assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
-import FileDropzone from "../components/FileDropZone";
+import FileDropzone from "../components/FileDropzone";
 import "../App.css";
 
 function Home() {
