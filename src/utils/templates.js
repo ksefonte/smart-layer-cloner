@@ -221,3 +221,30 @@ export async function getAllTemplatesForBase(baseId) {
     return { success: false, error: error.message, baseImages: [] };
   }
 }
+
+export async function removeTemplate(templateId) {
+  try {
+    
+    const db = await getDb();
+    const appDir = await appDataDir();
+    const templatesDir = await join(appDir, 'templates');
+    const templatesPath = await join(templatesDir, `${templateId}.psd`);
+    await db.execute('BEGIN TRANSACTION');
+      try {
+        await db.execute(
+          `DELETE FROM templates WHERE id = $1`,[templateId]
+          );
+          console.log("Removing templates at:", templatesPath);
+        await db.execute('COMMIT');
+      } catch (error) {
+        await db.execute('ROLLBACK');
+        throw error;
+      }
+      await exists(templatesPath)
+      console.log("Exists")
+      await remove(templatesPath);
+    return {success: true};
+  } catch (error) { 
+    return { success: false, error: error.message };
+  }
+}

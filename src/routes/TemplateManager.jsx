@@ -5,6 +5,7 @@ import {
   getAllBaseImages,
   addTemplate,
   getAllTemplatesForBase,
+  removeTemplate,
 } from '../utils/templates';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
@@ -160,6 +161,42 @@ function TemplateManager() {
     }
   }
 // 
+
+ async function handleRemoveTemplate(template,e) {
+    if (e) e.stopPropagation();
+    try {
+      const confirmation = await confirm(
+        'This action cannot be reverted. Are you sure?',
+        {
+          title: 'Confirm Deletion',
+          kind: 'warning',
+          okLabel: 'Delete',
+          cancelLabel: 'Cancel'
+        }
+      );
+      console.log(confirmation);
+      if (!confirmation) {
+        return;
+      }
+      setLoading(true);
+      const result = await removeTemplate(template.id);
+      if (result.success) {
+        if (selectedTemplate && selectedTemplate.id === template.id) {
+          setSelectedTemplate(null);
+          setView('templates');
+        }
+        await getTemplatesForSelected(template.baseId);
+      } else {
+        console.log(result)
+        setError(result.error || 'Failed to delete base');
+      }
+    } catch (error) {
+      console.error('Error in delete process:', error);
+      setError('Failed to delete base: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmitNewTemplate(e) {
     e.preventDefault();
@@ -378,7 +415,7 @@ function TemplateManager() {
                 </div>
                 <div className="template-actions">
                   <button className="edit-button">Edit</button>
-                  <button className="delete-button">Delete</button>
+                  <button onClick={() => handleRemoveTemplate(template)}className="delete-button">Delete</button>
                 </div>
               </div>
             ))
