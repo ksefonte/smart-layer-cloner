@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import {
   addBase,
   removeBase,
-  getAllBaseImages
+  getAllBaseImages,
+  addTemplate,
+  getAllTemplatesForBase,
 } from '../utils/templates';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { confirm } from '@tauri-apps/plugin-dialog';
@@ -12,6 +14,8 @@ import FileDropzone from '../components/FileDropzone';
 function TemplateManager() {
   const [baseImages, setBaseImages] = useState([]);
   const [selectedBaseImage, setSelectedBaseImage] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [templatesForBase, setTemplatesForBase] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('bases'); // 'bases', 'addBase', 'templates'
@@ -22,8 +26,9 @@ function TemplateManager() {
   });
   const [newTemplateData, setNewTemplateData] = useState({
     name: '',
-    fileSufffix: '',
-    file: null
+    fileSuffix: '',
+    file: null,
+    baseId: ''
   });
   
 
@@ -53,6 +58,10 @@ function TemplateManager() {
     setView('addBase');
   }
 
+  function handleAddTemplate() {
+    setView('addTemplate')
+  }
+
   function getAssetUrl(filePath) {
     if (!filePath) return '';
     try {
@@ -67,7 +76,7 @@ function TemplateManager() {
   async function handleSubmitNewBase(e) {
     e.preventDefault();
     
-    if (!newTemplateData.file) {
+    if (!newBaseData.file) {
       setError('Please upload a .psd file');
       return;
     }
@@ -75,14 +84,14 @@ function TemplateManager() {
     setLoading(true);
     
     try {
-      const result = await addTemplate({
-        file: newTemplateData.file,
-        name: newTemplateData.name,
-        filePrefix: newTemplateData.filePrefix
+      const result = await addBase({
+        file: newBaseData.file,
+        name: newBaseData.name,
+        filePrefix: newBaseData.filePrefix
       });
       
       if (result.success) {
-        setNewTemplateData({
+        setNewBaseData({
           name: '',
           filePrefix: '',
           file: null
@@ -102,13 +111,16 @@ function TemplateManager() {
   }
 
   function handleSelectBase(base) {
+    console.log("Base:",base)
     setSelectedBaseImage(base);
+    getTemplatesForSelected(base.id)
     console.log(base)
     setView('templates');
   }
 
   function handleBackToBases() {
     setSelectedBaseImage(null);
+    setTemplatesForBase(null)
     setView('bases');
   }
   
@@ -152,7 +164,7 @@ function TemplateManager() {
   async function handleSubmitNewTemplate(e) {
     e.preventDefault();
     
-    if (!newBaseData.file) {
+    if (!newTemplateData.file) {
       setError('Please upload an image file');
       return;
     }
@@ -160,17 +172,19 @@ function TemplateManager() {
     setLoading(true);
     
     try {
-      const result = await addBase({
-        file: newBaseData.file,
-        name: newBaseData.name,
-        filePrefix: newBaseData.filePrefix
+      const result = await addTemplate({
+        file: newTemplateData.file,
+        name: newTemplateData.name,
+        fileSuffix: newTemplateData.fileSuffix,
+        baseId: selectedBaseImage.id
       });
       
       if (result.success) {
-        setNewBaseData({
+        setNewTemplateData({
           name: '',
           filePrefix: '',
-          file: null
+          file: null,
+          baseId: selectedBaseImage.id
         });
 
         await fetchBaseImages();
@@ -186,7 +200,7 @@ function TemplateManager() {
     }
   }
 
-  function handleFileUpload(files) {
+  function handleImageUpload(files) {
     if (!files || files.length === 0) return;
     
     setNewBaseData({
@@ -197,9 +211,35 @@ function TemplateManager() {
     console.log("File selected:", files[0].name);
   }
 
-  function getTemplatesForSelected() {
-    if (!selectedBaseImage) return [];
-    return Object.values(selectedBaseImage.templates || {});
+  function handlePSDUpload(files) {
+    if (!files || files.length === 0) return;
+    
+    setNewTemplateData({
+      ...newTemplateData,
+      file: files[0]
+    });
+    
+    console.log("File selected:", files[0].name);
+  }
+
+  async function getTemplatesForSelected(baseId) {
+    setLoading(true);
+    try {
+      const result = await getAllTemplatesForBase(baseId);
+      console.log("Selecting templates...")
+      
+      if (result.success) {
+        setTemplatesForBase(result.selectedTemplates || []);
+        console.log(result)
+      } else {
+        setError(result.error || `Failed to load templates`);
+      }
+    } catch (err) {
+      console.error('Error fetching templates:', err);
+      setError('Failed to load template records: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function renderBasesView() {
@@ -248,7 +288,7 @@ function TemplateManager() {
       <>
         <div className="view-header">
           <h2>Add New Base Image</h2>
-          <button onClick={() => setView('bases')} className="back-button">
+          <button onClick={() => setView('templates')} className="back-button">
             Cancel
           </button>
         </div>
@@ -273,21 +313,21 @@ function TemplateManager() {
               value={newBaseData.filePrefix}
               onChange={(e) => setNewBaseData({...newBaseData, filePrefix: e.target.value})}
             />
-            <small>This prefix will be used when creating template files</small>
+            <small>This prefix will be used when creating output files</small>
           </div>
           
           <div className="form-group">
             <label>Base Image</label>
             <FileDropzone 
-              onFilesUploaded={handleFileUpload}
+              onFilesUploaded={handleImageUpload}
               type="png"
             />
-            {newBaseData.file && (
+            {newTemplateData.file && (
               <p className="file-selected">
-                Selected: {newBaseData.file.name} ({(newBaseData.file.size / 1024).toFixed(2)} KB)
+                Selected: {newTemplateData.file.name} ({(newTemplateData.file.size / 1024).toFixed(2)} KB)
               </p>
             )}
-            <small>Upload a PNG image to use as the base</small>
+            <small>Upload a .PSD file containing a replacable smart layer</small>
           </div>
           
           <div className="form-actions">
@@ -297,9 +337,9 @@ function TemplateManager() {
             <button 
               type="submit" 
               className="submit-button" 
-              disabled={!newBaseData.file || loading}
+              disabled={!newTemplateData.file || loading}
             >
-              {loading ? 'Creating...' : 'Create Base'}
+              {loading ? 'Creating...' : 'Create Template'}
             </button>
           </div>
         </form>
@@ -321,21 +361,20 @@ function TemplateManager() {
         </div>
         
         <div className="templates-actions">
-          <button className="add-template-button">
+          <button onClick={handleAddTemplate} className="add-template-button">
             Add New Template
           </button>
         </div>
         
         <div className="templates-list">
-          {getTemplatesForSelected().length === 0 ? (
+          {templatesForBase?.length === 0 ? (
             <p>No templates added for this base image yet.</p>
           ) : (
-            getTemplatesForSelected().map(template => (
+            templatesForBase?.map(template => (
               <div key={template.id} className="template-card">
                 <div className="template-details">
                   <h4>{template.name}</h4>
-                  <p>Layer count: {template.layerCount}</p>
-                  <p className="file-path">{template.filePath}</p>
+                  <p className="file-path">{template.templatePath}</p>
                 </div>
                 <div className="template-actions">
                   <button className="edit-button">Edit</button>
@@ -345,6 +384,70 @@ function TemplateManager() {
             ))
           )}
         </div>
+      </>
+    );
+  }
+
+  function renderAddTemplateView() {
+    return (
+      <>
+        <div className="view-header">
+          <h2>Add New Template</h2>
+          <button onClick={() => setView('templates')} className="back-button">
+            Cancel
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmitNewTemplate} className="add-template-form">
+          <div className="form-group">
+            <label htmlFor="name">Template Name</label>
+            <input 
+              type="text" 
+              id="name" 
+              value={newTemplateData.name}
+              onChange={(e) => setNewTemplateData({...newTemplateData, name: e.target.value})}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="fileSuffix">File Suffix (optional)</label>
+            <input 
+              type="text" 
+              id="fileSuffix" 
+              value={newTemplateData.fileSuffix}
+              onChange={(e) => setNewTemplateData({...newTemplateData, fileSuffix: e.target.value})}
+            />
+            <small>This suffix will be used when creating output files</small>
+          </div>
+          
+          <div className="form-group">
+            <label>Template PSD</label>
+            <FileDropzone 
+              onFilesUploaded={handlePSDUpload}
+              type="psd"
+            />
+            {newTemplateData.file && (
+              <p className="file-selected">
+                Selected: {newTemplateData.file.name} ({(newTemplateData.file.size / 1024).toFixed(2)} KB)
+              </p>
+            )}
+            <small>Upload a .PSD with a replcable smart object layer.</small>
+          </div>
+          
+          <div className="form-actions">
+            <button type="button" onClick={() => setView('bases')} className="cancel-button">
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="submit-button" 
+              disabled={!newTemplateData.file || loading}
+            >
+              {loading ? 'Creating...' : 'Create Template'}
+            </button>
+          </div>
+        </form>
       </>
     );
   }
@@ -362,6 +465,7 @@ function TemplateManager() {
         {view === 'bases' && renderBasesView()}
         {view === 'addBase' && renderAddBaseView()}
         {view === 'templates' && renderTemplatesView()}
+        {view === 'addTemplate' && renderAddTemplateView()}
       </div>
     </div>
   );

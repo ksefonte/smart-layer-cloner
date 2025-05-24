@@ -34,7 +34,7 @@ export async function removeBase(baseId) {
       }
       await exists(thumbnailPath)
       console.log("Exists")
-      await removeFile(thumbnailPath, fileBuffer);
+      await remove(thumbnailPath);
     return {success: true};
   } catch (error) { 
     return { success: false, error: error.message };
@@ -151,7 +151,7 @@ async function getImageDimensionsFromArrayBuffer(arrayBuffer) {
 export async function addTemplate(templateData) {
   try {
     console.log("Adding template record");
-    const { file, name = '', filePrefix = '' } = templateData;
+    const { file, name = '', fileSuffix = '', baseId } = templateData;
     
     let fileBuffer;
     if (file instanceof Blob || file instanceof File) {
@@ -181,9 +181,9 @@ export async function addTemplate(templateData) {
     const db = await getDb();
 
     await db.execute(
-      `INSERT INTO templates (id, name, base_id, template_path, file_prefix) 
+      `INSERT INTO templates (id, name, base_id, template_path, file_suffix) 
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, displayName, baseId, templatePath, filePrefix || '']
+      [id, displayName, baseId, templatePath, fileSuffix || '']
     );
     
     const template = {
@@ -191,12 +191,33 @@ export async function addTemplate(templateData) {
       name: displayName,
       baseId,
       templatePath,
-      filePrefix: filePrefix || '',
+      fileSuffix: fileSuffix || '',
     };
     
     return { success: true, template };
   } catch (error) {
     console.error('Error adding template record:', error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function getAllTemplatesForBase(baseId) {
+  try {
+    const db = await getDb();
+    const result = await db.select('SELECT * FROM templates WHERE base_id = $1',[baseId]);
+    
+    return { 
+      success: true, 
+      selectedTemplates: result.map(row => ({
+        id: row.id,
+        name: row.name,
+        baseId: row.base_id,
+        templatePath: row.template_path,
+        fileSuffix: row.file_suffix
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    return { success: false, error: error.message, baseImages: [] };
   }
 }
