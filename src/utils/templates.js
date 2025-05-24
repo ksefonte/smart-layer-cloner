@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { basename, join, appDataDir } from '@tauri-apps/api/path';
-import { mkdir, writeFile } from '@tauri-apps/plugin-fs';
+import { mkdir, writeFile, remove, exists } from '@tauri-apps/plugin-fs';
 import Database from '@tauri-apps/plugin-sql';
 
 let db = null;
@@ -12,10 +12,29 @@ async function getDb() {
 }
 export async function removeBase(baseId) {
   try {
+    
     const db = await getDb();
-    await db.execute(
-      `DELETE FROM base_images WHERE id = $1`,[baseId]
-    );
+    const appDir = await appDataDir();
+    const thumbnailsDir = await join(appDir, 'thumbnails');
+    const thumbnailPath = await join(thumbnailsDir, `${baseId}.png`);
+    await db.execute('BEGIN TRANSACTION');
+      try {
+        await db.execute(
+          `DELETE FROM base_images WHERE id = $1`,[baseId]
+          );
+          console.log("Removing thumbnail at:", thumbnailPath);
+        await db.execute(
+            `DELETE FROM templates WHERE base_id = $1`,[baseId]
+            );
+            console.log("Removing thumbnail at:", thumbnailPath);
+        await db.execute('COMMIT');
+      } catch (error) {
+        await db.execute('ROLLBACK');
+        throw error;
+      }
+      await exists(thumbnailPath)
+      console.log("Exists")
+      await removeFile(thumbnailPath, fileBuffer);
     return {success: true};
   } catch (error) { 
     return { success: false, error: error.message };
@@ -127,4 +146,57 @@ async function getImageDimensionsFromArrayBuffer(arrayBuffer) {
     };
     img.src = objectUrl;
   });
+}
+
+export async function addTemplate(templateData) {
+  try {
+    console.log("Adding template record");
+    const { file, name = '', filePrefix = '' } = templateData;
+    
+    let fileBuffer;
+    if (file instanceof Blob || file instanceof File) {
+      fileBuffer = await file.arrayBuffer();
+    } else if (baseData.fileBuffer) {
+      fileBuffer = baseData.fileBuffer;
+    } else {
+      throw new Error('No valid file or file buffer provided');
+    }
+
+    const id = nanoid();
+    
+    const displayName = name || (file.name ? file.name : 'Unnamed Template');
+    
+    const appDir = await appDataDir();
+    const templatesDir = await join(appDir, 'templates');
+    try {
+      await mkdir(templatesDir, { recursive: true });
+    } catch (error) {
+      console.log('Templates directory already exists or error:', error);
+    }
+    
+    const templatePath = await join(templatesDir, `${id}.psd`);
+    console.log("Saving template to:", templatePath);
+    await writeFile(templatePath, fileBuffer);
+    
+    const db = await getDb();
+
+    await db.execute(
+      `INSERT INTO templates (id, name, base_id, template_path, file_prefix) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, displayName, baseId, templatePath, filePrefix || '']
+    );
+    
+    const template = {
+      id,
+      name: displayName,
+      baseId,
+      templatePath,
+      filePrefix: filePrefix || '',
+    };
+    
+    return { success: true, template };
+  } catch (error) {
+    console.error('Error adding template record:', error);
+    return { success: false, error: error.message };
+  }
 }

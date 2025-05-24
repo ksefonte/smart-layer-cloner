@@ -20,6 +20,12 @@ function TemplateManager() {
     filePrefix: '',
     file: null
   });
+  const [newTemplateData, setNewTemplateData] = useState({
+    name: '',
+    fileSufffix: '',
+    file: null
+  });
+  
 
   useEffect(() => {
     fetchBaseImages();
@@ -61,22 +67,22 @@ function TemplateManager() {
   async function handleSubmitNewBase(e) {
     e.preventDefault();
     
-    if (!newBaseData.file) {
-      setError('Please upload an image file');
+    if (!newTemplateData.file) {
+      setError('Please upload a .psd file');
       return;
     }
     
     setLoading(true);
     
     try {
-      const result = await addBase({
-        file: newBaseData.file,
-        name: newBaseData.name,
-        filePrefix: newBaseData.filePrefix
+      const result = await addTemplate({
+        file: newTemplateData.file,
+        name: newTemplateData.name,
+        filePrefix: newTemplateData.filePrefix
       });
       
       if (result.success) {
-        setNewBaseData({
+        setNewTemplateData({
           name: '',
           filePrefix: '',
           file: null
@@ -137,6 +143,44 @@ function TemplateManager() {
     } catch (error) {
       console.error('Error in delete process:', error);
       setError('Failed to delete base: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  }
+// 
+
+  async function handleSubmitNewTemplate(e) {
+    e.preventDefault();
+    
+    if (!newBaseData.file) {
+      setError('Please upload an image file');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const result = await addBase({
+        file: newBaseData.file,
+        name: newBaseData.name,
+        filePrefix: newBaseData.filePrefix
+      });
+      
+      if (result.success) {
+        setNewBaseData({
+          name: '',
+          filePrefix: '',
+          file: null
+        });
+
+        await fetchBaseImages();
+        setView('bases');
+      } else {
+        setError(result.error || 'Failed to add base image');
+      }
+    } catch (error) {
+      console.error('Error adding base:', error);
+      setError(`Failed to add base: ${error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
