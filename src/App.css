@@ -81,6 +81,8 @@ button {
 
 button {
   cursor: pointer;
+  width: 50%;
+  align-self: center;
 }
 
 button:hover {
