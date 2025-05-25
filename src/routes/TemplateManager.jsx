@@ -151,6 +151,7 @@ function TemplateManager() {
         await fetchBaseImages();
       } else {
         console.log(result)
+        await fetchBaseImages();
         setError(result.error || 'Failed to delete base');
       }
     } catch (error) {
@@ -359,12 +360,12 @@ function TemplateManager() {
               onFilesUploaded={handleImageUpload}
               type="png"
             />
-            {newTemplateData.file && (
+            {newBaseData.file && (
               <p className="file-selected">
-                Selected: {newTemplateData.file.name} ({(newTemplateData.file.size / 1024).toFixed(2)} KB)
+                Selected: {newBaseData.file.name} ({(newBaseData.file.size / 1024).toFixed(2)} KB)
               </p>
             )}
-            <small>Upload a .PSD file containing a replacable smart layer</small>
+            <small>Upload a base image</small>
           </div>
           
           <div className="form-actions">
@@ -374,9 +375,9 @@ function TemplateManager() {
             <button 
               type="submit" 
               className="submit-button" 
-              disabled={!newTemplateData.file || loading}
+              disabled={!newBaseData.file || loading}
             >
-              {loading ? 'Creating...' : 'Create Template'}
+              {loading ? 'Creating...' : 'Create Base'}
             </button>
           </div>
         </form>

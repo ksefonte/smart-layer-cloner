@@ -12,7 +12,6 @@ async function getDb() {
 }
 export async function removeBase(baseId) {
   try {
-    
     const db = await getDb();
     const appDir = await appDataDir();
     const thumbnailsDir = await join(appDir, 'thumbnails');
