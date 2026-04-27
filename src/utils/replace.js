@@ -31,6 +31,9 @@ export async function testReplace() {
         pngBuffer.byteOffset,
         pngBuffer.byteOffset + pngBuffer.byteLength
         );
+      const pngUint8Array = pngArrayBuffer instanceof ArrayBuffer ? new Uint8Array(pngArrayBuffer) : pngArrayBuffer;
+      
+
       const psd = Psd.readPsd(psdArrayBuffer);
       console.log('PSD loaded successfully');
       console.log('Layers found:', getLayerCount(psd));
@@ -39,8 +42,14 @@ export async function testReplace() {
         return
       }
       // pseudocode
-      outputpsd = psd.linkedFiles => replace psd.linkedFiles.linkedFile.data with pngArrayBuffer
-
+      const replacedLayers = replaceSmartLayer(
+        {
+          psd,
+          png: pngUint8Array,
+          replacementLayer: null,
+          outputPath: testAssetsPath
+        }
+      )
     return { success: true, psd };
   } catch (error) {
     console.error('Error in smart object replacement test:', error);
@@ -78,22 +87,41 @@ function getLayerCount(psd) {
   return count;
 }
 
-async function replaceSmartLayer(psd,png,replacementLayer=null,outputPath) {
-  if (psd.linkedFiles.length === 0) {
+async function replaceSmartLayer({psd,png,replacementLayer=null,outputPath}) {
+  if (psd?.linkedFiles?.length === 0) {
     console.log("No linked layers found")
     return
   }
-  try {
-    let replacedFiles = [];
-    psd.linkedFiles.forEach(linkedFile => {
-      linkedFile.data = pngArrayBuffer
-    })
-    return { success:true, replacedFiles}
-  } catch (error) {
-    console.log('Error replacing smart layer')
-    return { success:false, error: error.message };
+  else {
+    try {
+      let replacedFiles = [];
+      let replacedLayerCount = 0
+      console.log("PSD:",psd)
+      psd.linkedFiles.forEach(linkedFile => {
+        console.log("Replacing:")
+        console.log(linkedFile.data)
+        console.log("with")
+        console.log(png)
+        linkedFile.data = png
+      })
+      console.log("PSD Replaced:",psd)
+      console.log("Writing modified layer to new psd")
+      const modifiedPsd = Psd.writePsd(psd)
+      console.log("Generating output file path")
+      const modifiedOutputPath = await join(outputPath,`testOutput.png`)
+      console.log("Generating new buffer")
+      const outputBuffer = new Uint8Array(modifiedPsd)
+      console.log("Writing file to:",modifiedOutputPath)
+      console.log("PSD: Updated PSD:",modifiedPsd)
+      await writeFile(modifiedOutputPath,modifiedPsd)
+      replacedLayerCount ++
+      console.log("Successfully wrote file")
+      return { success:true, replacedFiles}
+    } catch (error) {
+      console.log('Error replacing smart layer', error)
+      return { success:false, error: error.message };
+    }
   }
-  return
 }
 
 // testReplace()
